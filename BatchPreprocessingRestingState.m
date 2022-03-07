@@ -1,6 +1,7 @@
 % code for running bath analysis of resting state data in SPM12
 % Things to be done before running the code: 
 %1. Set the origin of the anatomical and functional images to anterior commissure ( see http://andysbrainblog.blogspot.com/2012/11/spm-setting-origin-and-normalization.html for rationale and the way to do it)
+% 在进行预处理之前要先校正一下AC的位置
 % by using the script acpc_coreg.m
 
 clear all
@@ -145,10 +146,11 @@ spm_jobman('run', matlabbatch)
 
 rp = spm_select('FPList',func_dir,'^rp.*\.txt$'); % 6 head motion parameters
 rp=readmatrix(rp);
-[r,c]=size(rp);
+[r,c]=size(rp); % 给r\c赋值为rp的矩阵维度
 rp1=vertcat(zeros(1,6),rp); % 6 head motion parameters from the previous time point
-rp1(r+1,:)=[];
-sq=rp.^2; % squared head motion parameters
+% 这样一来，第n行的motion parameters表示的是第n-1个时间点的头动参数。
+rp1(r+1,:)=[]; % 这样把最后一个时间点的参数去掉了
+sq=rp.^2; % squared head motion parameters .^表示的是将rp内的所有数据都取平方。
 
 % file select
 rf = spm_select('FPList',func_dir,'^rvol.*\.nii$');% realigned images
@@ -340,7 +342,7 @@ matlabbatch{1}.spm.stats.fmri_spec.fact = struct('name', {}, 'levels', {});
 matlabbatch{1}.spm.stats.fmri_spec.bases.hrf.derivs = [0 0]; 
 matlabbatch{1}.spm.stats.fmri_spec.volt = 1; 
 matlabbatch{1}.spm.stats.fmri_spec.global = 'None'; 
-matlabbatch{1}.spm.stats.fmri_spec.mthresh = -Inf; 
+matlabbatch{1}.spm.stats.fmri_spec.mthresh = -Inf; % 这个-Inf是指取负无穷的意思
 matlabbatch{1}.spm.stats.fmri_spec.mask = {''}; 
 matlabbatch{1}.spm.stats.fmri_spec.cvi = 'AR(1)'; 
 

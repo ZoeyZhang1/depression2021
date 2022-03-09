@@ -16,6 +16,7 @@ addpath(SPM_PATH)
 spm('Defaults','fMRI');
 spm_jobman('initcfg');
 
+% 显示出来跟SPM一起弹出的两个窗口
 spm('CreateIntWin','on');
 spm_figure('Create','Graphics','Graphics','on');
 
@@ -37,6 +38,7 @@ refslice = 0; % reference slice timing in milliseconds
 % for smoothing
 fwhm=[4 4 10]; % the thumb of rules says fwhm should be twice the voxel dimension
 
+% 建文件夹的数据结构
 % Get a list of all files and folders in func folder.
 files = dir('func');
 % Get a logical vector that tells which is a directory.
@@ -50,28 +52,28 @@ end
 
 clear k subFolders 
 
+% 循环，给每个被试做这一套预处理操作
 for sI = 1: length(subNames)
 
-    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% directories 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%     
-% define directories    
-str_dir = fullfile(root_dir, subNames{sI},'t1');
-func_dir = fullfile(root_dir, subNames{sI},'rsfmri');
+% define directories 因为他是在被试的文件夹下有anat &func的文件夹，所以对于每个被试自己的运算有自己的func & anat文件夹路径。    
+str_dir = fullfile(root_dir, subNames{sI},'anat');
+func_dir = fullfile(root_dir, subNames{sI},'func');
 
-
+% 拾取文件夹中的功能像和结构像，注意这里拾取的条件限制了^ 信息
 % file select
-f_or = spm_select('FPList',func_dir,'^vol.*\.nii$'); % original functional images
+f_or = spm_select('FPList',func_dir,'^sub.*\.nii$'); % original functional images
 %f = spm_select('FPList',func_dir,'^vol.*\.nii$'); % functional images
-s= spm_select('FPList',str_dir,'^defaced.*\.nii$'); % structural images 
+s= spm_select('FPList',str_dir,'^sub.*\.nii$'); % structural images 
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% create directory GLM & GLM2
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
+ % 建一个总的GLM & GLM2文件夹，将把每个被试的单独文件夹建在里面，注意这里是一个循环，所以会循环建GLM，会提出警告但不会影响结果。
 GLM_dir=fullfile(root_dir,'GLM');
 mkdir(GLM_dir)
 glm_dir=fullfile(GLM_dir, subNames{sI});
@@ -85,12 +87,13 @@ mkdir(glm2_dir)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% CONVERT FUNCTIONAL SCANS FROM 4D TO 3D
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+% 通过spm_file_split( )语句可以提取出一个4D的nii文件中的每一个frame, 变成3D的
 spm_file_split(f_or);
 
 
 
 % clear matlabbatch
+% 这一步他把原4D的数据删除了，所以此时fun_dir中就只有每一个frame。
 matlabbatch{1}.cfg_basicio.file_dir.dir_ops.cfg_mkdir.parent = cellstr(func_dir);
 matlabbatch{1}.cfg_basicio.file_dir.dir_ops.cfg_mkdir.name = 'original';
  
@@ -111,6 +114,7 @@ clear matlabbatch
 matlabbatch{1}.cfg_basicio.file_dir.dir_ops.cfg_mkdir.parent = cellstr(func_dir);
 matlabbatch{1}.cfg_basicio.file_dir.dir_ops.cfg_mkdir.name = 'dummy';
 
+% 用SPM的move file操作移动前五个时间节点到dummy中，不对他进行分析。
 matlabbatch{2}.cfg_basicio.file_dir.file_ops.file_move.files = cellstr(f(1:nd,:)); % remove first 5 scans to allow for magnetization to be stable
 matlabbatch{2}.cfg_basicio.file_dir.file_ops.file_move.action.moveto = cellstr(fullfile(func_dir,'dummy'));
 
@@ -124,6 +128,7 @@ spm_jobman('run',matlabbatch);
 %% Realignment
 f = spm_select('FPList',func_dir,'^vol.*\.nii$'); % functional images
 
+% 此时在func_dir中的.nii文件只有删除前五个frame后的剩余全部frame，之前的4D original image被挪去original dictionary,前五个时间点被挪去dummy dictionary中
 clear matlabbatch
 
 matlabbatch{1}.spm.spatial.realign.estwrite.data = {cellstr(f)};
@@ -153,8 +158,8 @@ rp1(r+1,:)=[]; % 这样把最后一个时间点的参数去掉了
 sq=rp.^2; % squared head motion parameters .^表示的是将rp内的所有数据都取平方。
 
 % file select
-rf = spm_select('FPList',func_dir,'^rvol.*\.nii$');% realigned images
-meanf=spm_select('FPList',func_dir,'^meanvol.*\.nii$');% mean image
+rf = spm_select('FPList',func_dir,'^r.*\.nii$');% realigned images
+meanf=spm_select('FPList',func_dir,'^mean.*\.nii$');% mean image
 
 clear matlabbatch
 
@@ -173,6 +178,7 @@ matlabbatch{1}.spm.temporal.st.prefix = 'a';
 
 matlabbatch{2}.spm.spatial.coreg.estimate.ref    = cellstr(meanf);
 matlabbatch{2}.spm.spatial.coreg.estimate.source = cellstr(s);
+% reference image选择头动校正后的mean图，cource image选择结构像
 matlabbatch{2}.spm.spatial.coreg.estimate.other = {''}; 
 matlabbatch{2}.spm.spatial.coreg.estimate.eoptions.cost_fun = 'nmi'; 
 matlabbatch{2}.spm.spatial.coreg.estimate.eoptions.sep = [4 2]; 
@@ -296,7 +302,7 @@ matlabbatch{1}.spm.util.voi.roi{2}.mask.image(1) = cellstr(mask);
 matlabbatch{1}.spm.util.voi.roi{2}.mask.threshold = 0.5; 
 matlabbatch{1}.spm.util.voi.expression = 'i1&i2'; 
 spm_jobman('run',matlabbatch);
-
+% 这句话的意思或许是将得到的数据，赋值给wm吧，但是这个Y具体是指什么我不太清楚
 wm=Y;
 
 clear matlabbatch

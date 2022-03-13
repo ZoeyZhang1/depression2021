@@ -11,6 +11,9 @@ spm('Defaults','fMRI');
 spm_jobman('initcfg');
 
 %% extract voi
+% 这里不能再像之前那样用循环列被试的文件夹了，因为剔除了中间一些号码的被试,所以就用下面的方法吧
+
+func={'E:\russia\ds002748_organized\FUNC'};
 
 % Get a list of all files and folders in func folder.
 files = dir('func');
@@ -25,11 +28,12 @@ end
 
 clear  subFolders 
 
-GLM2_dir=fullfile(root_dir,'GLM2');
+GLM2_dir=fullfile(root_dir,'GLM2');   % 这是需要GLM2中算的数据，也就是要对那些beta值进行计算
 
 maskNames={'lFp1.nii','lSSC.nii','lV1.nii','lA1.nii','lSMA.nii','lMC.nii','laIns.nii','lpIns.nii','lThal.nii','lBroca.nii','rFp1.nii','rSSC.nii','rV1.nii','rA1.nii','rSMA.nii','rMC.nii','raIns.nii','rpIns.nii'};
+% 上面这个是感兴趣的ROI对应mask的文件名（这个mask是用的SPM中自带的那些），也就是三个网络中包含的这些nodes
 voiNames={'lFp1','lSSC','lV1','lA1','lSMA','lMC','laIns','lpIns','lThal','lBroca','rFp1','rSSC','rV1','rA1','rSMA','rMC','raIns','rpIns'};
-
+% 这应该是ROI文件的名称
 
 for sI = 1: length(subNames)
 
@@ -47,7 +51,7 @@ matlabbatch{1}.spm.util.voi.session = 1; % Session index
 matlabbatch{1}.spm.util.voi.name = voiNames{vI}; % name you want to give 
 matlabbatch{1}.spm.util.voi.roi{1}.mask.image = cellstr(mask_dir); % directory to mask image
 %matlabbatch{1}.spm.util.voi.roi{1}.mask.threshold = 0.5;
-matlabbatch{1}.spm.util.voi.roi{1}.spm.mask.mtype = 0; % inclusion
+matlabbatch{1}.spm.util.voi.roi{1}.spm.mask.mtype = 0; % inclusion % 本身的SPM窗口下没有这一步，加这一步什么意义？
 matlabbatch{1}.spm.util.voi.expression = 'i1';
 spm_jobman('run',matlabbatch);
 

@@ -41,7 +41,7 @@ spm_dir = fullfile('GLM2_dir', subNames{sI},'SPM.mat');
 
 for vI = 1: length(voiNames)
 
-mask_dir= fullfile (root_dir, maskNames{vI});
+mask_dir= fullfile (root_dir, maskNames{vI}); % 这里可以看到mask文件是在root_dir这一层的，所以所有被试的mask都是一样的
 
 
 clear matlabbatch;
